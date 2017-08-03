@@ -1,11 +1,13 @@
 import numpy as np
 import tensorflow as tf
+import json
+import traceback
 
 from basic.read_data import DataSet
 from my.nltk_utils import span_f1
 from my.tensorflow import padded_reshape
 from my.utils import argmax
-from squad.utils import get_phrase, get_best_span, get_best_span_wy
+from squad.utils import get_phrase, get_best_span, get_best_span_wy, get_span_score_pairs
 
 
 class Evaluation(object):
@@ -190,6 +192,7 @@ class ForwardEvaluation(Evaluation):
         new_loss = (self.loss * self.num_examples + other.loss * other.num_examples) / len(new_yp)
         new_id2answer_dict = dict(list(self.id2answer_dict.items()) + list(other.id2answer_dict.items()))
         new_id2score_dict = dict(list(self.id2answer_dict['scores'].items()) + list(other.id2answer_dict['scores'].items()))
+
         new_id2answer_dict['scores'] = new_id2score_dict
         if self.tensor_dict is not None:
             new_tensor_dict = {key: np.concatenate((val, other.tensor_dict[key]), axis=0) for key, val in self.tensor_dict.items()}
@@ -393,8 +396,26 @@ class ForwardEvaluator(Evaluator):
         else:
             global_step, yp, yp2, loss, vals = sess.run([self.global_step, self.yp, self.yp2, self.loss, list(self.tensor_dict.values())], feed_dict=feed_dict)
 
+        # Not sure if article is included in this or not
+        # At this point yp and yp2 are [ paragraph1 [ sentence1 [ word1, word2, . . . wordN ]
+        #                                             sentence2 [ word1, word2, . . . wordN ]
+        #                                paragraph2 [ sentence1 [ word1, word2, . . . wordN ] ] ]
+        # print("\nGet evaluation\nyp {}\nyp2 {}\n".format(yp, yp2))
+
         yp, yp2 = yp[:data_set.num_examples], yp2[:data_set.num_examples]
+        # This zips things by paragraphs so ypi and yp2i are
+        #    [ sentence1 [ word1, word2, . . . wordN ]
+        #      sentence2 [ word1, word2, . . . wordN ] ]
         spans, scores = zip(*[get_best_span(ypi, yp2i) for ypi, yp2i in zip(yp, yp2)])
+        # After the unzip we should have spans and scores lists for each paragraph
+
+        ## CMG:
+        cmg_spans_scores = [get_span_score_pairs(ypi, yp2i) for ypi, yp2i in zip(yp, yp2)]
+        # Returns list of list of tuples [ paragraph [(((sentence, start), (sentence, end)), score), . . . .] ]
+        # print("CMG ndim {}".format(np.ndim(cmg_spans_scores)))
+        top = cmg_spans_scores[0]
+
+        #print("cmg_spans[0]: {}, cmg_scores[0]: {}".format(cmg_spans[0], cmg_scores[0]))
 
         def _get(xi, span):
             if len(xi) <= span[0][0]:
@@ -409,6 +430,25 @@ class ForwardEvaluator(Evaluator):
             if len(xi[span[0][0]]) <= span[1][1]:
                 return ""
             return get_phrase(context, xi, span)
+
+        # We want to sort by score for each paragraph(?)
+        top.sort(key=lambda tuple: tuple[1])
+        # print("After sort top[0] = {}, top[-1] = {}".format(top[0], top[-1]))
+        if len(top) < 10:
+            max_scores = len(cmg_span_scores[i])
+        else:
+            max_scores = 10
+        phrases = []
+        for j in range(1, max_scores + 1):
+            phrase = _get2(data_set.data['p'][0], data_set.data['x'][0], top[-j][0])
+            phrases.append(phrase)
+
+        print("\nTop {} span-score pairs:\n".format(max_scores))
+        for j in range(1, max_scores + 1):
+            print("{}: {} = \"{}\"".format(j, top[-j], phrases[j-1]))
+
+        print("\nGet evaluation spans {}, scores {}\n".format(json.dumps(spans), json.dumps(scores)))
+
 
         id2answer_dict = {id_: _get2(context, xi, span)
                           for id_, xi, span, context in zip(data_set.data['ids'], data_set.data['x'], spans, data_set.data['p'])}

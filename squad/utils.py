@@ -41,6 +41,8 @@ def get_phrase(context, wordss, span):
     :return:
     """
     start, stop = span
+
+    # print("get_phrase:\ncontext {}\nwordss {}\nstart {}, stop {}".format(context, wordss, start, stop))
     flat_start = get_flat_idx(wordss, start)
     flat_stop = get_flat_idx(wordss, stop)
     words = sum(wordss, [])
@@ -80,10 +82,16 @@ def process_tokens(temp_tokens):
     return tokens
 
 
+# This should have ypi and yp2i like:
+#    [ sentence1 [ word1, word2, . . . wordN ]
+#      sentence2 [ word1, word2, . . . wordN ] ]
 def get_best_span(ypi, yp2i):
     max_val = 0
     best_word_span = (0, 1)
     best_sent_idx = 0
+    # print("CMG: get_best_span({}, {})".format(ypi, yp2i))
+    # The following zip should result in ypif and yp2if being
+    #    [ word1, word2, . . . . wordN ]
     for f, (ypif, yp2if) in enumerate(zip(ypi, yp2i)):
         argmax_j1 = 0
         for j in range(len(ypif)):
@@ -97,6 +105,7 @@ def get_best_span(ypi, yp2i):
                 best_word_span = (argmax_j1, j)
                 best_sent_idx = f
                 max_val = val1 * val2
+    # Return the tuple ((sentence index, answer start index), (sentence index, answer after end index)), score
     return ((best_sent_idx, best_word_span[0]), (best_sent_idx, best_word_span[1] + 1)), float(max_val)
 
 
@@ -132,15 +141,23 @@ def get_best_span_wy(wypi, th):
 
     return max(zip(chunk_spans, scores), key=lambda pair: pair[1])
 
-
+# This should have ypi and yp2i like:
+#    [ sentence1 [ word1, word2, . . . wordN ]
+#      sentence2 [ word1, word2, . . . wordN ] ]
 def get_span_score_pairs(ypi, yp2i):
     span_score_pairs = []
+    # The following zip should result in ypif and yp2if being
+    #    [ word1, word2, . . . . wordN ]
     for f, (ypif, yp2if) in enumerate(zip(ypi, yp2i)):
         for j in range(len(ypif)):
             for k in range(j, len(yp2if)):
                 span = ((f, j), (f, k+1))
                 score = ypif[j] * yp2if[k]
                 span_score_pairs.append((span, score))
+    # This is an array of all valid span-score pairs (valid meaning k >= j)
+    # [ ((sentence, answer start index), (sentence, answer after end index)), score,
+    #   ((sentence, answer start index), (sentence, answer after end index)), score,
+    #   . . . . ]
     return span_score_pairs
 
 

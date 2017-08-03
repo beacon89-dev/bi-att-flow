@@ -3,6 +3,8 @@ import argparse
 import json
 import math
 import shutil
+import json
+import time
 from pprint import pprint
 
 import tensorflow as tf
@@ -132,6 +134,7 @@ class Demo(object):
         set_dirs(config)
         models = get_multi_gpu_models(config)
         self.evaluator = ForwardEvaluator(config, models[0], tensor_dict=models[0].tensor_dict if config.vis else None)
+        print("Creating Demo object: " + time.strftime("%H:%M:%S"))
 
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
         self.graph_handler = GraphHandler(config, models[0])
@@ -154,15 +157,18 @@ class Demo(object):
                 config.new_emb_mat = new_emb_mat
         self.config = config
         self.test_data = test_data
+        print("data_ready at " + time.strftime("%H:%M:%S"))
 
     def run(self, data):
         self.data_ready(data=data)
         test_data = self.test_data
         config = self.config
         e = None
+        print("\nCMG: Before get_batches")
         for multi_batch in test_data.get_batches(config.batch_size, num_batches=1, cluster=config.cluster):
             ei = self.evaluator.get_evaluation(self.sess, multi_batch)
             e = ei if e is None else e + ei
+        print("\n\nCMG at {} e.id2answer_dict: {}".format(time.strftime("%H:%M:%S"), json.dumps(e.id2answer_dict)))
         return (e.id2answer_dict[0])
 
 if __name__ == "__main__":

@@ -15,6 +15,8 @@ def prepro(paragraph, question):
     data_type = 'demo'
     out_name='demo'
 
+    # Here is where we might want to do realy sentence tokenization.
+    # Can we add on paragraph tokenization somehow?  Is that even a thing?
     sent_tokenize = lambda para: [para] #  nltk.sent_tokenize
     def word_tokenize(tokens):
         return [token.replace("''", '"').replace("``", '"') for token in nltk.word_tokenize(tokens)]
