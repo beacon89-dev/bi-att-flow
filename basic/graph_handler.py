@@ -8,6 +8,8 @@ import tensorflow as tf
 from basic.evaluator import Evaluation, F1Evaluation
 from my.utils import short_floats
 
+from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
+
 import pickle
 
 
@@ -31,7 +33,17 @@ class GraphHandler(object):
         saver = tf.train.Saver(max_to_keep=self.config.max_to_keep)
         saver.save(sess, self.save_path, global_step=global_step)
 
+    def _output_saved_model(self, sess, path):
+        # This was an attempt to start saving the model via SavedModelBuilder()
+        # print("\nPRINTING SAVED TENSORS")
+        # print_tensors_in_checkpoint_file(path, '', True)
+        # graph = tf.get_default_graph()
+        #builder = tf.python.saved_model.builder.SavedModelBuilder(os.path.join(config.save_dir, "builder_path")
+
     def _load(self, sess):
+        # We might be able to do something about clearing out the device bindings since
+        # we trained on a GPU but may not run on one (see https://www.tensorflow.org/programmers_guide/meta_graph).
+
         config = self.config
         vars_ = {var.name.split(":")[0]: var for var in tf.global_variables()}
         if config.load_ema:
@@ -50,8 +62,8 @@ class GraphHandler(object):
             checkpoint = tf.train.get_checkpoint_state(save_dir)
             assert checkpoint is not None, "cannot load checkpoint at {}".format(save_dir)
             save_path = checkpoint.model_checkpoint_path
-        print("Loading saved model from {}".format(save_path))
         saver.restore(sess, save_path)
+        self._output_saved_model(sess, save_path)
 
     def add_summary(self, summary, global_step):
         self.writer.add_summary(summary, global_step)

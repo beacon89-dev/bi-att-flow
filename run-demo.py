@@ -23,8 +23,20 @@ def submit(paragraph, question):
 
 if __name__ == "__main__":
     print("CMG ({}): Running run-demo as main".format(time.strftime("%H:%M:%S")))
-    file = open("/home/chris/work/demo_input/paragraph", "r")
+
+    filename = input("Enter path to file with text: ")
+    file = open(filename, "r")
     paragraph = file.read()
-    question = "How tall is Darko Milicic?"
-    print("({}) Submitting question {}".format(time.strftime("%H:%M:%S"), question))
-    submit(paragraph, question)
+    file.close()
+    question = input("Enter your question ('done' to stop, 'new passage' for new text): ")
+    while question != "done":
+        if question == "new passage":
+            filename = input("Enter path to file with text: ")
+            file = open(filename, "r")
+            paragraph = file.read()
+            file.close()
+            question = input("Enter your question ('done' to stop, 'new passage' for new text): ")
+
+        print("({}) Submitting question {}".format(time.strftime("%H:%M:%S"), question))
+        submit(paragraph, question)
+        question = input("Enter your question ('done' to stop, 'new passage' for new text): ")
